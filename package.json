@@ -1,10 +1,13 @@
 {
-  "name": "@editorjs/header",
-  "version": "2.8.8",
+  "name": "@zeainc/editorjs-header-i18n",
+  "version": "2.8.9",
   "keywords": [
     "codex editor",
     "header",
     "heading",
+    "i18n",
+    "localization",
+    "internationalization",
     "editor.js",
     "editorjs"
   ],
@@ -39,7 +42,7 @@
     "vite-plugin-dts": "^3.9.1"
   },
   "dependencies": {
-    "@codexteam/icons": "^0.0.5",
+    "@codexteam/icons": "^0.3.3",
     "@editorjs/editorjs": "^2.29.1"
   }
 }

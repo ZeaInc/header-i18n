@@ -1,17 +1,25 @@
 /**
  * Build styles
  */
-import './index.css';
+import "./index.css";
 
-import { IconH1, IconH2, IconH3, IconH4, IconH5, IconH6, IconHeading } from '@codexteam/icons';
-import { API, BlockTune, PasteEvent } from '@editorjs/editorjs';
+import {
+  IconH1,
+  IconH2,
+  IconH3,
+  IconH4,
+  IconH5,
+  IconH6,
+  IconHeading,
+} from "@codexteam/icons";
+import { API, BlockTune, PasteEvent } from "@editorjs/editorjs";
 
 /**
-* @description Tool's input and output data format
-*/
-export interface HeaderData {
+ * @description Tool's input and output data format
+ */
+export interface Header_i18n_Data {
   /** Header's content */
-  text: string;
+  translations: Record<string, string>;
   /** Header's level from 1 to 6 */
   level: number;
 }
@@ -19,7 +27,7 @@ export interface HeaderData {
 /**
  * @description Tool's config from Editor
  */
-export interface HeaderConfig {
+export interface Header_i18n_Config {
   /** Block's placeholder */
   placeholder?: string;
   /** Heading levels */
@@ -45,14 +53,20 @@ interface Level {
  */
 interface ConstructorArgs {
   /** Previously saved data */
-  data: HeaderData | {};
+  data: Header_i18n_Data | {};
   /** User config for the tool */
-  config: HeaderConfig;
+  config: Header_i18n_Config;
   /** Editor.js API */
   api: API;
   /** Read-only mode flag */
   readOnly: boolean;
 }
+
+type Language = string;
+
+let activeLanguage: Language = "en";
+type Callback = () => void;
+const callbacks: Callback[] = [];
 
 /**
  * Header block for the Editor.js.
@@ -62,11 +76,11 @@ interface ConstructorArgs {
  * @license MIT
  * @version 2.0.0
  */
-export default class Header {
+export default class Header_i18n {
   /**
    * Render plugin`s main Element and fill it with saved data
    *
-   * @param {{data: HeaderData, config: HeaderConfig, api: object}}
+   * @param {{data: Header_i18n_Data, config: Header_i18n_Config, api: object}}
    *   data — previously saved data
    *   config - user config for Tool
    *   api - Editor.js API
@@ -74,28 +88,28 @@ export default class Header {
    */
   /**
    * Editor.js API
-  * @private
-  */
+   * @private
+   */
   private api: API;
   /**
-  * Read-only mode flag
-  * @private
-  */
+   * Read-only mode flag
+   * @private
+   */
   private readOnly: boolean;
   /**
-  * Tool's settings passed from Editor
-  * @private
-  */
-  private _settings: HeaderConfig;
+   * Tool's settings passed from Editor
+   * @private
+   */
+  private _settings: Header_i18n_Config;
   /**
-  * Block's data
-  * @private
-  */
-  private _data: HeaderData;
+   * Block's data
+   * @private
+   */
+  private _data: Header_i18n_Data;
   /**
-  * Main Block wrapper
-  * @private
-  */
+   * Main Block wrapper
+   * @private
+   */
   private _element: HTMLHeadingElement;
 
   constructor({ data, config, api, readOnly }: ConstructorArgs) {
@@ -105,7 +119,7 @@ export default class Header {
     /**
      * Tool's settings passed from Editor
      *
-     * @type {HeaderConfig}
+     * @type {Header_i18n_Config}
      * @private
      */
     this._settings = config;
@@ -113,7 +127,7 @@ export default class Header {
     /**
      * Block's data
      *
-     * @type {HeaderData}
+     * @type {Header_i18n_Data}
      * @private
      */
     this._data = this.normalizeData(data);
@@ -125,6 +139,17 @@ export default class Header {
      * @private
      */
     this._element = this.getTag();
+
+    // Enable causing blocks to switch languages
+    callbacks.push(() => {
+      activeLanguage = activeLanguage;
+      window.requestAnimationFrame(() => {
+        if (!this._element) {
+          return;
+        }
+        this._element.innerHTML = this._data.translations[activeLanguage] || "";
+      });
+    });
   }
   /**
    * Styles
@@ -132,39 +157,59 @@ export default class Header {
   private get _CSS() {
     return {
       block: this.api.styles.block,
-      wrapper: 'ce-header',
+      wrapper: "ce-header",
     };
-  }
-
-  /**
-   * Check if data is valid
-   * 
-   * @param {any} data - data to check
-   * @returns {data is HeaderData}
-   * @private
-   */
-  isHeaderData(data: any): data is HeaderData {
-    return (data as HeaderData).text !== undefined;
   }
 
   /**
    * Normalize input data
    *
-   * @param {HeaderData} data - saved data to process
+   * @param {Header_i18n_Data} data - saved data to process
    *
-   * @returns {HeaderData}
+   * @returns {Header_i18n_Data}
    * @private
    */
-  normalizeData(data: HeaderData | {}): HeaderData {
-    const newData: HeaderData = { text: '', level: this.defaultLevel.number };
+  normalizeData(data: Header_i18n_Data | {}): Header_i18n_Data {
+    const newData: Header_i18n_Data = {
+      translations: {},
+      level: this.defaultLevel.number,
+    };
 
-    if (this.isHeaderData(data)) {
-      newData.text = data.text || '';
-  
+    if (typeof data === "string") {
+      const text = data;
+      return {
+        translations: { [activeLanguage]: text },
+        level: this.defaultLevel.number,
+      };
+    }
+    // @ts-ignore
+    else if (typeof data.text === "string") {
+      // @ts-ignore
+      const text = data.text;
+      // @ts-ignore
+      const level = data.level || this.defaultLevel.number;
+
+      return {
+        translations: { [activeLanguage]: text },
+        level,
+      };
+    }
+    // @ts-ignore
+    else if (typeof data.translations === "object") {
+      const result = data as Header_i18n_Data;
+      if (result.translations[activeLanguage] == undefined) {
+        result.translations[activeLanguage] = "";
+      }
+
+      // @ts-ignore
       if (data.level !== undefined && !isNaN(parseInt(data.level.toString()))) {
+        // @ts-ignore
         newData.level = parseInt(data.level.toString());
       }
+      return result;
     }
+
+    console.warn("Header_i18n: unable to normalize data:", data);
 
     return newData;
   }
@@ -185,13 +230,13 @@ export default class Header {
    * @returns {Array}
    */
   renderSettings(): BlockTune[] {
-    return this.levels.map(level => ({
+    return this.levels.map((level) => ({
       icon: level.svg,
       label: this.api.i18n.t(`Heading ${level.number}`),
       onActivate: () => this.setLevel(level.number),
       closeOnActivate: true,
       isActive: this.currentLevel.number === level.number,
-      render: () => document.createElement('div')
+      render: () => document.createElement("div"),
     }));
   }
 
@@ -203,7 +248,7 @@ export default class Header {
   setLevel(level: number): void {
     this.data = {
       level: level,
-      text: this.data.text,
+      translations: this.data.translations,
     };
   }
 
@@ -211,35 +256,39 @@ export default class Header {
    * Method that specified how to merge two Text blocks.
    * Called by Editor.js by backspace at the beginning of the Block
    *
-   * @param {HeaderData} data - saved data to merger with current block
+   * @param {Header_i18n_Data} data - saved data to merger with current block
    * @public
    */
-  merge(data: HeaderData): void {
-    this._element.insertAdjacentHTML('beforeend', data.text)
+  merge(data: Header_i18n_Data): void {
+    this._element.insertAdjacentHTML(
+      "beforeend",
+      data.translations[activeLanguage]
+    );
   }
 
   /**
    * Validate Text block data:
    * - check for emptiness
    *
-   * @param {HeaderData} blockData — data received after saving
+   * @param {Header_i18n_Data} blockData — data received after saving
    * @returns {boolean} false if saved data is not correct, otherwise true
    * @public
    */
-  validate(blockData: HeaderData): boolean {
-    return blockData.text.trim() !== '';
+  validate(blockData: Header_i18n_Data): boolean {
+    return blockData.translations[activeLanguage].trim() !== "";
   }
 
   /**
    * Extract Tool's data from the view
    *
    * @param {HTMLHeadingElement} toolsContent - Text tools rendered view
-   * @returns {HeaderData} - saved data
+   * @returns {Header_i18n_Data} - saved data
    * @public
    */
-  save(toolsContent: HTMLHeadingElement): HeaderData {
+  save(toolsContent: HTMLHeadingElement): Header_i18n_Data {
+    this.data.translations[activeLanguage] = toolsContent.innerHTML;
     return {
-      text: toolsContent.innerHTML,
+      translations: this.data.translations,
       level: this.currentLevel.number,
     };
   }
@@ -249,8 +298,19 @@ export default class Header {
    */
   static get conversionConfig() {
     return {
-      export: 'text', // use 'text' property for other blocks
-      import: 'text', // fill 'text' property from other block's export string
+      export: (data: Header_i18n_Data) => {
+        return data.translations[activeLanguage];
+      },
+      import: (data: any) => {
+        console.log(data);
+        if (typeof data === "string") {
+          return data;
+        } else if (data.text) {
+          return data.text;
+        } else if (data.translations) {
+          return data.translations[activeLanguage];
+        }
+      },
     };
   }
 
@@ -276,13 +336,13 @@ export default class Header {
   /**
    * Get current Tools`s data
    *
-   * @returns {HeaderData} Current data
+   * @returns {Header_i18n_Data} Current data
    * @private
    */
-  get data(): HeaderData {
-    this._data.text = this._element.innerHTML;
+  get data(): Header_i18n_Data {
+    this._data.translations[activeLanguage] = this._element.innerHTML;
     this._data.level = this.currentLevel.number;
-    
+
     return this._data;
   }
 
@@ -291,10 +351,10 @@ export default class Header {
    * - at the this._data property
    * - at the HTML
    *
-   * @param {HeaderData} data — data to set
+   * @param {Header_i18n_Data} data — data to set
    * @private
    */
-  set data(data: HeaderData) {
+  set data(data: Header_i18n_Data) {
     this._data = this.normalizeData(data);
 
     /**
@@ -331,8 +391,8 @@ export default class Header {
     /**
      * If data.text was passed then update block's content
      */
-    if (data.text !== undefined) {
-      this._element.innerHTML = this._data.text || '';
+    if (data.translations[activeLanguage] !== undefined) {
+      this._element.innerHTML = this._data.translations[activeLanguage] || "";
     }
   }
 
@@ -346,12 +406,14 @@ export default class Header {
     /**
      * Create element for current Block's level
      */
-    const tag = document.createElement(this.currentLevel.tag) as HTMLHeadingElement;
+    const tag = document.createElement(
+      this.currentLevel.tag
+    ) as HTMLHeadingElement;
 
     /**
      * Add text to block
      */
-    tag.innerHTML = this._data.text || '';
+    tag.innerHTML = this._data.translations[activeLanguage] || "";
 
     /**
      * Add styles class
@@ -361,12 +423,12 @@ export default class Header {
     /**
      * Make tag editable
      */
-    tag.contentEditable = this.readOnly ? 'false' : 'true';
+    tag.contentEditable = this.readOnly ? "false" : "true";
 
     /**
      * Add Placeholder
      */
-    tag.dataset.placeholder = this.api.i18n.t(this._settings.placeholder || '');
+    tag.dataset.placeholder = this.api.i18n.t(this._settings.placeholder || "");
 
     return tag;
   }
@@ -377,7 +439,9 @@ export default class Header {
    * @returns {level}
    */
   get currentLevel(): Level {
-    let level = this.levels.find(levelItem => levelItem.number === this._data.level);
+    let level = this.levels.find(
+      (levelItem) => levelItem.number === this._data.level
+    );
 
     if (!level) {
       level = this.defaultLevel;
@@ -396,14 +460,16 @@ export default class Header {
      * User can specify own default level value
      */
     if (this._settings.defaultLevel) {
-      const userSpecified = this.levels.find(levelItem => {
+      const userSpecified = this.levels.find((levelItem) => {
         return levelItem.number === this._settings.defaultLevel;
       });
 
       if (userSpecified) {
         return userSpecified;
       } else {
-        console.warn('(ง\'̀-\'́)ง Heading Tool: the default level specified was not found in available levels');
+        console.warn(
+          "(ง'̀-'́)ง Heading Tool: the default level specified was not found in available levels"
+        );
       }
     }
 
@@ -431,39 +497,39 @@ export default class Header {
     const availableLevels = [
       {
         number: 1,
-        tag: 'H1',
+        tag: "H1",
         svg: IconH1,
       },
       {
         number: 2,
-        tag: 'H2',
+        tag: "H2",
         svg: IconH2,
       },
       {
         number: 3,
-        tag: 'H3',
+        tag: "H3",
         svg: IconH3,
       },
       {
         number: 4,
-        tag: 'H4',
+        tag: "H4",
         svg: IconH4,
       },
       {
         number: 5,
-        tag: 'H5',
+        tag: "H5",
         svg: IconH5,
       },
       {
         number: 6,
-        tag: 'H6',
+        tag: "H6",
         svg: IconH6,
       },
     ];
 
-    return this._settings.levels ? availableLevels.filter(
-      l => this._settings.levels!.includes(l.number)
-    ) : availableLevels;
+    return this._settings.levels
+      ? availableLevels.filter((l) => this._settings.levels!.includes(l.number))
+      : availableLevels;
   }
 
   /**
@@ -474,7 +540,7 @@ export default class Header {
   onPaste(event: PasteEvent): void {
     const detail = event.detail;
 
-    if ('data' in detail) {
+    if ("data" in detail) {
       const content = detail.data as HTMLElement;
       /**
        * Define default level value
@@ -484,22 +550,22 @@ export default class Header {
       let level = this.defaultLevel.number;
 
       switch (content.tagName) {
-        case 'H1':
+        case "H1":
           level = 1;
           break;
-        case 'H2':
+        case "H2":
           level = 2;
           break;
-        case 'H3':
+        case "H3":
           level = 3;
           break;
-        case 'H4':
+        case "H4":
           level = 4;
           break;
-        case 'H5':
+        case "H5":
           level = 5;
           break;
-        case 'H6':
+        case "H6":
           level = 6;
           break;
       }
@@ -507,13 +573,16 @@ export default class Header {
       if (this._settings.levels) {
         // Fallback to nearest level when specified not available
         level = this._settings.levels.reduce((prevLevel, currLevel) => {
-          return Math.abs(currLevel - level) < Math.abs(prevLevel - level) ? currLevel : prevLevel;
+          return Math.abs(currLevel - level) < Math.abs(prevLevel - level)
+            ? currLevel
+            : prevLevel;
         });
       }
 
+      this._data.translations[activeLanguage] = content.innerHTML;
       this.data = {
         level,
-        text: content.innerHTML,
+        translations: this._data.translations,
       };
     }
   }
@@ -526,7 +595,7 @@ export default class Header {
    */
   static get pasteConfig() {
     return {
-      tags: ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'],
+      tags: ["H1", "H2", "H3", "H4", "H5", "H6"],
     };
   }
 
@@ -540,7 +609,18 @@ export default class Header {
   static get toolbox() {
     return {
       icon: IconHeading,
-      title: 'Heading',
+      title: "Heading",
     };
+  }
+
+  static getActiveLanguage(): Language {
+    return activeLanguage;
+  }
+
+  static setActiveLanguage(value: string) {
+    activeLanguage = value;
+    callbacks.forEach((callback) => {
+      callback();
+    });
   }
 }
