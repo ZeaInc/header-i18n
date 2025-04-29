@@ -17,7 +17,7 @@ import { API, BlockTune, PasteEvent } from "@editorjs/editorjs";
 /**
  * @description Tool's input and output data format
  */
-export interface HeaderData {
+export interface Header_i18n_Data {
   /** Header's content */
   translations: Record<string, string>;
   /** Header's level from 1 to 6 */
@@ -27,7 +27,7 @@ export interface HeaderData {
 /**
  * @description Tool's config from Editor
  */
-export interface HeaderConfig {
+export interface Header_i18n_Config {
   /** Block's placeholder */
   placeholder?: string;
   /** Heading levels */
@@ -53,9 +53,9 @@ interface Level {
  */
 interface ConstructorArgs {
   /** Previously saved data */
-  data: HeaderData | {};
+  data: Header_i18n_Data | {};
   /** User config for the tool */
-  config: HeaderConfig;
+  config: Header_i18n_Config;
   /** Editor.js API */
   api: API;
   /** Read-only mode flag */
@@ -76,11 +76,11 @@ const callbacks: Callback[] = [];
  * @license MIT
  * @version 2.0.0
  */
-export default class Header {
+export default class Header_i18n {
   /**
    * Render plugin`s main Element and fill it with saved data
    *
-   * @param {{data: HeaderData, config: HeaderConfig, api: object}}
+   * @param {{data: Header_i18n_Data, config: Header_i18n_Config, api: object}}
    *   data — previously saved data
    *   config - user config for Tool
    *   api - Editor.js API
@@ -100,12 +100,12 @@ export default class Header {
    * Tool's settings passed from Editor
    * @private
    */
-  private _settings: HeaderConfig;
+  private _settings: Header_i18n_Config;
   /**
    * Block's data
    * @private
    */
-  private _data: HeaderData;
+  private _data: Header_i18n_Data;
   /**
    * Main Block wrapper
    * @private
@@ -119,7 +119,7 @@ export default class Header {
     /**
      * Tool's settings passed from Editor
      *
-     * @type {HeaderConfig}
+     * @type {Header_i18n_Config}
      * @private
      */
     this._settings = config;
@@ -127,7 +127,7 @@ export default class Header {
     /**
      * Block's data
      *
-     * @type {HeaderData}
+     * @type {Header_i18n_Data}
      * @private
      */
     this._data = this.normalizeData(data);
@@ -162,47 +162,54 @@ export default class Header {
   }
 
   /**
-   * Check if data is valid
-   *
-   * @param {any} data - data to check
-   * @returns {data is HeaderData}
-   * @private
-   */
-  isHeaderData(data: any): data is HeaderData {
-    return (data as HeaderData).translations !== undefined;
-  }
-
-  /**
    * Normalize input data
    *
-   * @param {HeaderData} data - saved data to process
+   * @param {Header_i18n_Data} data - saved data to process
    *
-   * @returns {HeaderData}
+   * @returns {Header_i18n_Data}
    * @private
    */
-  normalizeData(data: HeaderData | {}): HeaderData {
-    const newData: HeaderData = {
+  normalizeData(data: Header_i18n_Data | {}): Header_i18n_Data {
+    const newData: Header_i18n_Data = {
       translations: {},
       level: this.defaultLevel.number,
     };
 
-    // @ts-ignore
-    if (data.text !== undefined) {
-      (data as HeaderData).translations = {};
-      // @ts-ignore
-      data.translations[activeLanguage] = data.text;
-      // @ts-ignore
-      delete data.text;
+    if (typeof data === "string") {
+      const text = data;
+      return {
+        translations: { [activeLanguage]: text },
+        level: this.defaultLevel.number,
+      };
     }
+    // @ts-ignore
+    else if (typeof data.text === "string") {
+      // @ts-ignore
+      const text = data.text;
+      // @ts-ignore
+      const level = data.level || this.defaultLevel.number;
 
-    if (this.isHeaderData(data)) {
-      newData.translations[activeLanguage] =
-        data.translations[activeLanguage] || "";
+      return {
+        translations: { [activeLanguage]: text },
+        level,
+      };
+    }
+    // @ts-ignore
+    else if (typeof data.translations === "object") {
+      const result = data as Header_i18n_Data;
+      if (result.translations[activeLanguage] == undefined) {
+        result.translations[activeLanguage] = "";
+      }
 
+      // @ts-ignore
       if (data.level !== undefined && !isNaN(parseInt(data.level.toString()))) {
+        // @ts-ignore
         newData.level = parseInt(data.level.toString());
       }
+      return result;
     }
+
+    console.warn("Header_i18n: unable to normalize data:", data);
 
     return newData;
   }
@@ -249,10 +256,10 @@ export default class Header {
    * Method that specified how to merge two Text blocks.
    * Called by Editor.js by backspace at the beginning of the Block
    *
-   * @param {HeaderData} data - saved data to merger with current block
+   * @param {Header_i18n_Data} data - saved data to merger with current block
    * @public
    */
-  merge(data: HeaderData): void {
+  merge(data: Header_i18n_Data): void {
     this._element.insertAdjacentHTML(
       "beforeend",
       data.translations[activeLanguage]
@@ -263,11 +270,11 @@ export default class Header {
    * Validate Text block data:
    * - check for emptiness
    *
-   * @param {HeaderData} blockData — data received after saving
+   * @param {Header_i18n_Data} blockData — data received after saving
    * @returns {boolean} false if saved data is not correct, otherwise true
    * @public
    */
-  validate(blockData: HeaderData): boolean {
+  validate(blockData: Header_i18n_Data): boolean {
     return blockData.translations[activeLanguage].trim() !== "";
   }
 
@@ -275,10 +282,10 @@ export default class Header {
    * Extract Tool's data from the view
    *
    * @param {HTMLHeadingElement} toolsContent - Text tools rendered view
-   * @returns {HeaderData} - saved data
+   * @returns {Header_i18n_Data} - saved data
    * @public
    */
-  save(toolsContent: HTMLHeadingElement): HeaderData {
+  save(toolsContent: HTMLHeadingElement): Header_i18n_Data {
     this.data.translations[activeLanguage] = toolsContent.innerHTML;
     return {
       translations: this.data.translations,
@@ -291,8 +298,19 @@ export default class Header {
    */
   static get conversionConfig() {
     return {
-      export: "text", // use 'text' property for other blocks
-      import: "text", // fill 'text' property from other block's export string
+      export: (data: Header_i18n_Data) => {
+        return data.translations[activeLanguage];
+      },
+      import: (data: any) => {
+        console.log(data);
+        if (typeof data === "string") {
+          return data;
+        } else if (data.text) {
+          return data.text;
+        } else if (data.translations) {
+          return data.translations[activeLanguage];
+        }
+      },
     };
   }
 
@@ -318,10 +336,10 @@ export default class Header {
   /**
    * Get current Tools`s data
    *
-   * @returns {HeaderData} Current data
+   * @returns {Header_i18n_Data} Current data
    * @private
    */
-  get data(): HeaderData {
+  get data(): Header_i18n_Data {
     this._data.translations[activeLanguage] = this._element.innerHTML;
     this._data.level = this.currentLevel.number;
 
@@ -333,10 +351,10 @@ export default class Header {
    * - at the this._data property
    * - at the HTML
    *
-   * @param {HeaderData} data — data to set
+   * @param {Header_i18n_Data} data — data to set
    * @private
    */
-  set data(data: HeaderData) {
+  set data(data: Header_i18n_Data) {
     this._data = this.normalizeData(data);
 
     /**
