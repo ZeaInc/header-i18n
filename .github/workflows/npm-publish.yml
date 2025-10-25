@@ -1,4 +1,4 @@
-name: Publish package to NPM
+name: Publish package to GitHub Packages
 
 on:
   push:
@@ -6,9 +6,24 @@ on:
       - master
 
 jobs:
-  publish-and-notify:
-    uses: codex-team/github-workflows/.github/workflows/npm-publish-and-notify-reusable.yml@main
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      CODEX_BOT_NOTIFY_EDITORJS_PUBLIC_CHAT: ${{ secrets.CODEX_BOT_NOTIFY_EDITORJS_PUBLIC_CHAT }}
-  
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: yarn install --frozen-lockfile
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - run: yarn publish --ignore-scripts --no-git-tag-version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
